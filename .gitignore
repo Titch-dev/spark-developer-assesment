@@ -1,0 +1,17 @@
+# removing virtual env
+env/
+
+# Mac files
+*.DS_Store
+
+# Log files
+*.log
+
+# Package files
+*.jar
+
+# JetBrains IDE
+.idea/
+
+# csv test data
+consumption_values.csv
