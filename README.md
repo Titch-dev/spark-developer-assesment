@@ -1,13 +1,13 @@
 # Python Coding Challenge
 ## Installation
 ### Clone the repositry
-In the terminal navigate to the directory you wish to clone spark_developer_assessment and run:
+In the terminal navigate to the directory you wish to clone stark_developer_assessment and run:
 ```
-$ git clone https://github.com/Titch-dev/spark_developer_assessment.git
+$ git clone https://github.com/Titch-dev/stark_developer_assessment.git
 ```
 
 ### Set up environment
-Navigate to /spark_developer_assessment directory
+Navigate to /stark_developer_assessment directory
 
 Create virtual environment
 
