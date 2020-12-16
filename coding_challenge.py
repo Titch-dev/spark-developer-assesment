@@ -1,17 +1,32 @@
 import pandas as pd
 from datetime import datetime, timedelta
 import plotly.express as px
-import os
+import re
 
 
-# 1. write a piece of code to extract the time-series data into a format that provides easier access to the data
-consumption_values = pd.read_csv('consumption_values.csv')
+def plot_cleaned_csv(cleaned_consumption_values):
+    fig = px.line(cleaned_consumption_values,
+                  title="Cleaned Consumption Values",
+                  line_group="channel",
+                  color="channel",
+                  x="datetime",
+                  y="logdata_value"
+                  )
 
-channel = consumption_values['channmr']
+    fig.update_xaxes(title_text='DateTime')
+    fig.update_yaxes(title_text='kWh')
 
-start_time = consumption_values['startdatetime']
+    fig.show()
 
-logdata_concat = consumption_values['logdata0']\
+def clean_and_plot_csv(consumption_values_csv):
+    # Import the source data
+    consumption_values = pd.read_csv(consumption_values_csv)
+
+    # Build temporary dataframe for parsing
+    channel = consumption_values['channmr']
+    start_time = consumption_values['startdatetime']
+
+    logdata_concat = consumption_values['logdata0']\
                  + consumption_values['logdata1']\
                  + consumption_values['logdata2']\
                  + consumption_values['logdata3']\
@@ -19,51 +34,45 @@ logdata_concat = consumption_values['logdata0']\
                  + consumption_values['logdata5']\
                  + consumption_values['logdata6']
 
-cleaned_consumption_values = pd.DataFrame(columns=['channel', 'interval', 'start_time', 'logdata_value'])
+    parsing_df = pd.DataFrame({'channel': channel, 'start_time': start_time, 'logdata_concat': logdata_concat})
 
-df = pd.DataFrame({'channel': channel, 'start_time': start_time, 'logdata_concat': logdata_concat})
+    # Cleaned output dataframe
+    cleaned_consumption_values = pd.DataFrame(columns=['channel', 'interval', 'datetime', 'logdata_value'])
 
-p = 0
+    for row in parsing_df.iterrows():
 
-for row in df.iterrows():
-    channel_number = row[1]['channel']
-    start_time = row[1]['start_time']
-    time = datetime.fromtimestamp(start_time)
-    logdata = row[1]['logdata_concat'].split(',')
-    # need to add re to detect status code
-    logdata_value = logdata[0].replace('A', '').replace('d2','')
+        channel = row[1]['channel']
+        logdata = row[1]['logdata_concat'].split(',')
 
-    logdata_interval = logdata[1]
+        current_timestamp = int(row[1]['start_time'])
+        current_interval = 0
 
-    first_data_point_dict = {'channel': channel_number, 'interval': logdata_interval, 'start_time': time, 'logdata_value': logdata_value}
+        for i in range(1,len(logdata)):
 
-    cleaned_consumption_values = cleaned_consumption_values.append(first_data_point_dict, ignore_index=True)
+            logdata_entry = logdata[i]
 
-    i = 2
-    interval = 60*30
+            # Check if logdata_entry is an interval (ie 30M, 180M)
+            interval_match = re.match("[0-9]+M", logdata_entry)
+            if interval_match:
+                interval_string = re.match("[0-9]+", logdata_entry)
+                current_interval = int(interval_string.group())
 
-    for i in range(2,len(logdata)):
-        ts = interval * i
-        ts = ts - interval
-        time = datetime.fromtimestamp(start_time)
-        data_point_ts = time + timedelta(0,ts)
-        row_dict = {'channel': channel_number, 'interval': logdata_interval, 'start_time': data_point_ts, 'logdata_value': logdata[i]}
-        cleaned_consumption_values = cleaned_consumption_values.append(row_dict, ignore_index=True)
+            else:
 
+                # Check for a float (ie logdata value)
+                float_match = re.match('[0-9]+\.[0-9]+', logdata_entry)
+                if float_match:
+                    logdata_value = float(float_match.group())
 
-# print(cleaned_consumption_values)
-# cleaned_consumption_values.to_csv(os.path.join(path,r'cleaned_consumption_value.csv')
+                    # Calculate the next/current timestamp from previous & convert to datetime
+                    current_timestamp = current_timestamp + (current_interval * 60)
+                    current_datetime = datetime.fromtimestamp(current_timestamp)
 
+                    # Build the dictionary to append to cleaned dataframe
+                    row_dict = {'channel': channel, 'interval': current_interval, 'datetime': current_datetime, 'logdata_value': logdata_value}
+                    cleaned_consumption_values = cleaned_consumption_values.append(row_dict, ignore_index=True)
 
-fig = px.line(cleaned_consumption_values,
-              title="Cleaned Consumption Values",
-              line_group="channel",
-              color="channel",
-              x="start_time",
-              y="logdata_value"
-              )
+    plot_cleaned_csv(cleaned_consumption_values)
 
-fig.update_xaxes(title_text='DateTime')
-fig.update_yaxes(title_text='kWh')
-
-fig.show()
+# Call function, parsing relevant .csv file
+clean_and_plot_csv('consumption_values.csv')
